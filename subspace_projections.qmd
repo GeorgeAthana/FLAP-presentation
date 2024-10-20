@@ -1,0 +1,1333 @@
+---
+title: Improving forecasts via subspace projections
+author: Rob J Hyndman
+date: 19 September 2024
+toc: true
+format:
+  presentation-beamer:
+    pdf-engine: pdflatex
+    knitr:
+      opts_chunk:
+        dev: "CairoPDF"
+    template-partials:
+      - before-title.tex
+    include-in-header: header.tex
+    keep-tex: true
+cite-method: biblatex
+biblatexoptions: natbib,style=authoryear
+bibliography: hts.bib
+highlight-style: tango
+execute:
+  echo: false
+  message: false
+  warning: false
+  cache: true
+abstract: Univariate, multivariate, and hierarchical forecasts can all be improved using projections onto linear subspaces, regardless of what forecasting method is used. I will show some theoretical guarantees of this statement, and demonstrate using empirical applications how linear projections can lead to (sometimes dramatic) improvements in forecast accuracy.
+---
+
+```{r}
+#| label: load-packages
+#| cache: false
+source("setup.R")
+```
+
+# Improving hierarchical forecasts
+
+## Australian tourism regions
+
+```{r}
+#| label: ausmap
+#| eval: false
+library(sf)
+# Use Okabe-Ito color-blind friendly color palette
+state_colors <- c(
+  `New South Wales` = "#56b4e9",
+  `Victoria` = "#0072b2",
+  `Queensland` = "#009e73",
+  `South Australia` = "#f0e442",
+  `Northern Territory` = "#d55e00",
+  `Western Australia` = "#e69f00",
+  `Tasmania` = "#cc79a7",
+  `Australian Capital Territory` = "#cccccc"
+)
+Cairo::CairoPDF(here::here("figs/ausmap.pdf"), width = 15/1.5, height = 7/1.5)
+read_sf("tourism/Tourism_Regions_2020.shp") |>
+  rename(State = "STE_NAME16") |>
+  ggplot() +
+  geom_sf(aes(fill = State), alpha = 0.8) +
+  theme_void() +
+  theme(text = ggplot2::element_text(family = 'Fira Sans')) +
+  scale_fill_manual(values = state_colors)
+crop::dev.off.crop(here::here("figs/aus_map.pdf"))
+```
+
+\centerline{\includegraphics[width=14cm,height=8cm]{figs/aus_map.png}}
+
+\only<2>{\begin{textblock}{6.5}(9.2,1.4)
+\begin{block}{}%\fontsize{12}{13}\sf
+  \begin{itemize}\itemsep=0cm\parskip=0cm
+    \item Monthly data on visitor night from 1998 -- 2017
+    \item From \textit{National Visitor Survey}, annual interviews of 120,000 Australians aged 15+.
+    \item Geographical hierarchy split by
+    \begin{itemize}
+    \item 7 states
+    \item 27 zones
+    \item 75 regions
+    \end{itemize}
+  \end{itemize}
+\end{block}
+\end{textblock}}
+
+
+## Australian tourism data
+
+```{r}
+#| label: tourism_plots
+#| eval: false
+p1 <- tourism |>
+  summarise(visitors = sum(visitors)) |>
+  autoplot(visitors) +
+  ylab("Visitor nights") + xlab("Month") +
+  #scale_y_log10() +
+  ggtitle("Total domestic travel: Australia")
+p2 <- tourism |>
+  group_by(state) |>
+  summarise(visitors = sum(visitors)) |>
+  autoplot(visitors) +
+  ylab("Visitor nights") + xlab("Month") +
+  scale_y_log10() +
+  ggtitle("Total domestic travel: by state") +
+  scale_color_manual(
+    values =
+      c(
+        NSW = "#56b4e9",
+        VIC = "#0072b2",
+        QLD = "#009e73",
+        SA = "#f0e442",
+        NT = "#d55e00",
+        WA = "#e69f00",
+        TAS = "#cc79a7",
+        ACT = "#cccccc"
+      )
+  ) +
+  guides(color = guide_legend(title="State"))
+p3 <- tourism |>
+  filter(state == "NSW") |>
+  group_by(zone) |>
+  summarise(visitors = sum(visitors)) |>
+  autoplot(visitors) +
+  ylab("Visitor nights") + xlab("Month") +
+  ggtitle("Total domestic travel: NSW by zone") +
+  guides(color = guide_legend(title="Zone"))
+p4 <- tourism |>
+  filter(zone == "South NSW") |>
+  group_by(region) |>
+  summarise(visitors = sum(visitors)) |>
+  autoplot(visitors) +
+  ylab("Visitor nights") + xlab("Month") +
+  #scale_y_log10() +
+  ggtitle("Total domestic travel: South NSW by region") +
+  guides(color = guide_legend(title="Region"))
+p5 <- tourism |>
+  group_by(purpose) |>
+  summarise(visitors = sum(visitors)) |>
+  autoplot(visitors) +
+  ylab("Visitor nights") + xlab("Month") +
+  #scale_y_log10() +
+  ggtitle("Total domestic travel: by purpose of travel") +
+  guides(color = guide_legend(title="Purpose"))
+p6 <- tourism |>
+  filter(region == "Snowy Mountains") |>
+  group_by(purpose) |>
+  summarise(visitors = sum(visitors)) |>
+  autoplot(visitors) +
+  ylab("Visitor nights") + xlab("Month") +
+  #scale_y_log10() +
+  ggtitle("Total domestic travel: Snowy Mountains by purpose of travel") +
+  guides(color = guide_legend(title="Purpose"))
+
+aligned_plots <- align_patches(p1, p2, p3, p4, p5, p6)
+for (i in seq_along(aligned_plots)) {
+  fname <- paste0("./figs/tourism", i, ".pdf")
+  Cairo::CairoPDF(fname, width = 15/1.5, height = 7/1.5)
+  print(aligned_plots[[i]])
+  crop::dev.off.crop(fname)
+}
+```
+
+\only<1>{\placefig{0.1}{1.4}{width=15.8cm, height=8cm}{tourism1}}
+\only<2>{\placefig{0.1}{1.4}{width=15.8cm, height=8cm}{tourism2}}
+\only<3>{\placefig{0.1}{1.4}{width=15.8cm, height=8cm}{tourism3}}
+\only<4>{\placefig{0.1}{1.4}{width=15.8cm, height=8cm}{tourism4}}
+\only<5>{\placefig{0.1}{1.4}{width=15.8cm, height=8cm}{tourism5}}
+\only<6>{\placefig{0.1}{1.4}{width=15.8cm, height=8cm}{tourism6}}
+
+## Australian tourism data
+
+\begin{textblock}{6}(0.2,1.2)
+\centering\fontsize{12}{13}\sf
+\textbf{Geographical division}\\
+\includegraphics[width = 5.5cm, trim= 0 0 180 0, clip=true]{aus_map}\\[-0.4cm]
+\faTimes\\
+\textbf{Purpose of travel}\\
+{\fontsize{11}{12}\sf Holiday, Visiting friends \& relatives, Business, Other}
+\end{textblock}
+
+\begin{textblock}{10}(6.1,1)
+\fontsize{11}{14}\sf\tabcolsep=0.12cm
+\begin{itemize}
+\item \textbf{Grouped ts}\newline (geographical divisions $\times$ purpose of travel)
+
+\begin{tabular}{lccccc}
+\toprule
+  & \textbf{AUS} & \textbf{States} & \textbf{Zones$^\ast$} & \textbf{Regions} & \textbf{Tot}\\
+  \midrule
+  \textbf{geographical} & {\color{newblue}1} & {\color{newblue}7} & {\color{newblue}21} & {\color{newblue}76} & 105 \\
+  \textbf{purpose} & {\color{newblue}4} & {\color{newblue}28} & {\color{newblue}84} & {\color{avocado}304} & 420\\
+  \midrule
+  \textbf{total} & 5 & 35 & 105 & 380 & \textbf{525}\\
+  \bottomrule
+\end{tabular}
+\centerline{{\color{newblue}$n_a = 221$}, {\color{avocado}$n_b = 304$}, and $\textbf{n = 525}$}
+
+\end{itemize}
+\end{textblock}
+
+\begin{textblock}{9.4}(6.1,6)
+\begin{alertblock}{}\fontsize{12}{15}\sf
+\begin{itemize}
+\item Need forecasts at all levels of aggregation.
+\item Independent forecasts will not add up.
+\item Impose constraints on the forecasts to ensure they are "coherent".
+\end{itemize}
+\end{alertblock}
+\end{textblock}
+
+
+## Hierarchical and grouped time series
+
+\begin{textblock}{8.8}(0.2,1.5)
+Almost all collections of time series with linear constraints can be written \rlap{as}
+\centerline{\colorbox[RGB]{210,210,210}{$\bY_{t}=\color{blue}\bS\color{red}\bm{b}_{t}$}}
+\vspace*{-0.9cm}\begin{itemize}\parskip=0cm\itemsep=0cm
+\item $\by_t=$ vector of all series at time $t$
+\item $y_{\text{Total},t}=$ aggregate of all series at time $t$.
+\item $y_{X,t}=$ value of series $X$ at time $t$.
+\item $\color{red}{\bm{b}_t}=$ vector of most disaggregated series at time $t$
+\item $\color{blue}{\bS}=$ ``summing matrix'' containing the linear constraints.
+\end{itemize}
+\end{textblock}
+
+\begin{textblock}{5.7}(11.4,0.1)
+\begin{minipage}{4cm}
+\begin{block}{}\centering
+\begin{tikzpicture}
+\tikzstyle{every node}=[ellipse,draw,fill=red!15,inner sep=2pt]
+\tikzstyle[level distance=.3cm]
+\tikzstyle[sibling distance=12cm]
+\tikzstyle{level 1}=[sibling distance=10mm,font=\small,set style={{every node}+=[fill=blue!15]}]
+\node{Total}[edge from parent fork down]
+ child {node {A}
+ }
+ child {node {B}
+ }
+ child {node {C}
+ };
+\end{tikzpicture}
+\end{block}
+\end{minipage}
+\end{textblock}
+
+\begin{textblock}{5.7}(9.4,2.8)\fontsize{14}{15}\sf
+\begin{align*}
+\bY_{t}&= \begin{pmatrix}
+  y_{\text{Total},t}\\
+  y_{A,t}\\
+  y_{B,t}\\
+  y_{C,t}
+  \end{pmatrix}  \\
+  &= {\color{blue}\begin{pmatrix}
+                1 & 1 & 1 \\
+                1 & 0 & 0 \\
+                0 & 1 & 0\\
+                0 & 0 & 1
+                \end{pmatrix}}
+     {\color{red}\begin{pmatrix}
+       y_{A,t}\\y_{B,t}\\y_{C,t}
+       \end{pmatrix}}
+\end{align*}
+\end{textblock}
+
+
+
+## The coherent subspace
+
+\begin{textblock}{9}(.2,1)\fontsize{13}{13}\sf
+\begin{block}{Coherent subspace}
+$n_b$-dimensional linear subspace $\mathfrak{s}\subset \mathbb{\chi}^n$ for which linear constraints hold for all $\bm{y}\in\mathfrak{s}$.
+\end{block}\vspace*{-0.3cm}
+\begin{block}{Hierarchical time series}
+An $n$-dimensional multivariate time series such that $\bm{y}_t\in\mathfrak{s}\quad\forall t$.
+\end{block}\vspace*{-0.3cm}
+\begin{block}{Coherent point forecasts}
+$\tilde{\bm{y}}_{t+h|t}$ is \emph{coherent} if $\tilde{\bm{y}}_{t+h|t} \in \mathfrak{s}$.
+\end{block}\vspace*{-0.2cm}
+\end{textblock}
+\only<2-3>{\begin{textblock}{7.5}(.2,6.75)\fontsize{13}{13}\sf
+\begin{alertblock}{Base forecasts}
+Let $\hat{\bm{y}}_{t+h|t}$ be vector of \emph{incoherent} initial $h$-step forecasts.$\phantom{y_{t|h}}$
+\end{alertblock}
+\end{textblock}}
+\only<3>{\begin{textblock}{7.5}(8.3,6.75)\fontsize{13}{13}\sf
+\begin{alertblock}{Reconciled forecasts}
+Let $\bm{M}$ be a projection matrix. $\tilde{\bm{y}}_{t+h|t}=\bm{M}\hat{\bm{y}}_{t+h|t}$ ``reconciles'' $\hat{\bm{y}}_{t+h|t}$.
+\end{alertblock}
+\end{textblock}}
+
+\placefig{9.4}{.0}{width=6.6cm}{3D_hierarchy}
+\begin{textblock}{3}(11.4,5.6)\fontsize{13}{13}\sf
+\begin{block}{}
+\centerline{$y_{Tot} = y_A + y_B$}
+\end{block}
+\end{textblock}
+
+## Linear projection reconciliation
+\fontsize{14}{16}\sf
+\vspace*{0.2cm}\begin{alertblock}{}
+\centerline{$\tilde{\bm{y}}_{t+h|t}= \bm{M}\hat{\bm{y}}_{t+h|t}$}
+\end{alertblock}\vspace*{-0.2cm}
+
+* If $\bm{S}$ forms a basis set for $\mathfrak{s}$, then projections are of the form $\bm{M} = \bS(\bS'\bm{\Psi}\bS)^{-1}\bS'\bm{\Psi}$ where $\bm{\Psi}$ is a positive definite matrix.
+* Coherent base forecasts are unchanged since $\bm{M}\hat{\bm{y}}=\hat{\bm{y}}$
+* If $\hat{\bm{y}}$ is unbiased, then $\tilde{\bm{y}}$ is also unbiased.
+* $\bm{W}_h = \var[\by_{T+h} - \hat{\by}_{T+h|T} \mid \by_1,\dots,\by_T]$ is the covariance matrix of the base forecast errors.
+* $\bm{V}_h = \var[\by_{T+h} - \tilde{\by}_{T+h|T}  \mid \by_1,\dots,\by_T])  = \bm{M}\bm{W}_h\bm{M}'$ is the covariance matrix of the reconciled forecast errors.
+* How to choose the best $\bm{\Psi}$?
+
+\vspace*{10cm}
+
+## Minimum trace reconciliation
+
+\begin{textblock}{6.4}(9,-0.1)\begin{block}{}
+Wickramasuriya et al (2019)
+\end{block}\end{textblock}
+
+\vspace*{0.2cm}\begin{alertblock}{Minimum trace (MinT) reconciliation}
+If $\bm{M}$ is a projection, then trace of $\bm{V}_h$ is minimized when $\bm{\Psi} = \bm{W}_h$, so that
+\centerline{$\bm{M} = \bS(\bS'\bm{W}_h^{-1}\bS)^{-1}\bS'\bm{W}_h^{-1}$}
+\end{alertblock}
+\begin{block}{}
+\centerline{$\displaystyle\textcolor{red}{\tilde{\by}_{T+h|T}}
+= \bm{M} ~ \textcolor{blue}{\hat{\by}_{T+h|T}}$}
+\end{block}\vspace*{-0.2cm}
+\centerline{\hspace*{1.4cm}\textcolor{red}{Reconciled forecasts}\hfill\textcolor{blue}{Base forecasts}\hspace*{2.9cm}}\vspace*{-0.2cm}
+
+* Trace of $\bm{V}_h$ is sum of forecast variances.
+* MinT is $L_2$ optimal amongst linear unbiased forecasts.
+* How to estimate $\bm{W}_h = \var[\by_{T+h} - \hat{\by}_{T+h|T} \mid \by_1,\dots,\by_T]$?
+
+## Linear projections
+
+\begin{textblock}{5}(7,-0.2)
+\begin{block}{}
+\centerline{$\tilde{\by}_{T+h|T}=\bm{M}\hat{\by}_{T+h|T}$}
+\end{block}
+\end{textblock}
+
+\begin{textblock}{9.4}(.5,1.2)
+\begin{alertblock}{Reconciliation method \hspace*{0.5cm} $\bm{M}$}
+\begin{tabular}{l@{\hspace*{-0.5cm}}l}
+  OLS             & $\bS(\bS'\bS)^{-1}\bS'$ \\
+  WLS(var)        & $\bS(\bS'\bm{\Lambda}_v\bS)^{-1}\bS'\bm{\Lambda}_v$ \\
+  WLS(struct)     & $\bS(\bS'\bm{\Lambda}_s\bS)^{-1}\bS'\bm{\Lambda}_s$ \\
+  MinT(sample)    & $\bS(\bS'\hat{\bm{W}}_{\text{sam}}^{-1}\bS)^{-1}\bS' \hat{\bm{W}}_{\text{sam}}^{-1}$  \\
+  MinT(shrink)\hspace*{2cm}    & $(\bS'\hat{\bm{W}}_{\text{shr}}^{-1}\bS)^{-1}\bS' \hat{\bm{W}}_{\text{shr}}^{-1}$  \\
+\end{tabular}
+\end{alertblock}
+\end{textblock}
+\begin{textblock}{15}(.2,5.7)\fontsize{13}{15}\sf
+\begin{itemize}\parskip=0cm
+\item $\bm{\Lambda}_v = \text{diag}(\bm{W}_1)^{-1}$
+\item $\bm{\Lambda}_s = \text{diag}(\bS\bm{1})^{-1}$
+\item $\hat{\bm{W}}_{\text{sam}}$ is sample estimate of the residual covariance matrix
+\item $\hat{\bm{W}}_{\text{shr}}$ is shrinkage estimator $\tau \text{diag}(\hat{\bm{W}}_{\text{sam}})+(1-\tau)\hat{\bm{W}}_{\text{sam}}$\\ where $\tau$ selected optimally.
+\end{itemize}
+\end{textblock}
+\begin{textblock}{5}(10.3,3.35)
+\begin{block}{}
+These approximate MinT by assuming $\bm{W}_h = k_h \bm{W}_1$.
+\end{block}
+\end{textblock}
+
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r tourismdata00, echo=TRUE}
+tourism
+```
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r tourismagg, echo=TRUE}
+tourism_agg <- tourism |>
+  aggregate_key(state / zone / region, visitors = sum(visitors))
+```
+
+```{r tourismagg2, echo=FALSE}
+tourism_agg
+```
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r tourismmodels, echo=TRUE}
+fit <- tourism_agg |>
+  filter(year(month) <= 2015) |>
+  model(ets = ETS(visitors))
+```
+
+```{r tourismmodels1, echo=FALSE}
+fit
+```
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r fctourism, echo=TRUE}
+fc <- fit |>
+  reconcile(
+    ols = min_trace(ets, method = "ols"),
+    wlsv = min_trace(ets, method = "wls_var"),
+    wlss = min_trace(ets, method = "wls_struct"),
+    # mint_c = min_trace(ets, method="mint_cov"),
+    mint_s = min_trace(ets, method = "mint_shrink"),
+  ) |>
+  forecast(h = "2 years")
+```
+
+```{r fctourism1, echo=FALSE}
+fc
+```
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r fctourism2, dependson='fctourism', echo=TRUE, fig.width=12, fig.height=4.5}
+fc |>
+  filter(is_aggregated(state)) |>
+  autoplot(filter(tourism_agg, year(month) > 2012), level = NULL)
+```
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r fctourism3, dependson='fctourism', echo=TRUE, fig.width=12, fig.height=4.5}
+fc |>
+  filter(state == "NSW" & is_aggregated(zone)) |>
+  autoplot(filter(tourism_agg, year(month) > 2012), level = NULL)
+```
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r fctourism4, dependson='fctourism', echo=TRUE, fig.width=12, fig.height=4.5}
+fc |>
+  filter(region == "Melbourne") |>
+  autoplot(filter(tourism_agg, year(month) > 2012), level = NULL)
+```
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r fctourism5, dependson='fctourism', echo=TRUE, fig.width=12, fig.height=4.5}
+fc |>
+  filter(region == "Snowy Mountains") |>
+  autoplot(filter(tourism_agg, year(month) > 2012), level = NULL)
+```
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r fctourism6, dependson='fctourism', echo=TRUE, fig.width=12, fig.height=4.5}
+fc |>
+  filter(region == "Barossa") |>
+  autoplot(filter(tourism_agg, year(month) > 2012), level = NULL)
+```
+
+## Performance evaluation
+
+\vspace*{0.2cm}\begin{block}{}
+\centerline{$\text{MASE} = \text{mean}(|q_{j}|)$}
+$$
+  q_{j} = \frac{e_{j}\phantom{^2}}
+ {\displaystyle\frac{1}{T-m}\sum_{t=m+1}^T |y_{t}-y_{t-m}|}
+$$
+\end{block}
+
+* $y_t=$ observation for period $t$
+* $e_{j}=$ forecast error for forecast horizon $j$
+* $T=$ size of training set
+* $m = 12$
+
+## Performance evaluation
+
+\vspace*{0.2cm}\begin{block}{}
+\centerline{$\text{RMSSE} = \sqrt{\text{mean}(q_{j}^2)}$}
+$$
+  q^2_{j} = \frac{ e^2_{j}}
+ {\displaystyle\frac{1}{T-m}\sum_{t=m+1}^T (y_{t}-y_{t-m})^2}
+$$
+\end{block}
+
+* $y_t=$ observation for period $t$
+* $e_{j}=$ forecast error for forecast horizon $j$
+* $T=$ size of training set
+* $m = 12$
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r fcaccuracy, dependson='fctourismcomb', echo=TRUE}
+fc |>
+  accuracy(tourism_agg, measures = list(mase = MASE, rmsse = RMSSE))
+```
+
+## Example: Australian tourism
+\fontsize{10}{11}\sf
+
+```{r fcaccuracy2, dependson='fctourismcomb', echo=TRUE}
+fc |>
+  accuracy(tourism_agg, measures = list(mase = MASE, rmsse = RMSSE)) |>
+  group_by(.model) |>
+  summarise(mase = mean(mase), rmsse = sqrt(mean(rmsse^2))) |>
+  arrange(rmsse)
+```
+
+\only<2>{\begin{textblock}{7}(7,5)
+\begin{block}{}\fontsize{13}{14}\sf
+\begin{itemize}\tightlist
+\item Overall, every reconciliation method is better than the base ETS forecasts.
+\end{itemize}
+\end{block}
+\end{textblock}}
+
+## Example: Australian tourism
+\fontsize{8}{7}\sf
+
+```{r fcaccuracy3, dependson='fctourismcomb', echo=FALSE}
+fc |>
+  accuracy(tourism_agg,
+    measures = list(mase = MASE, rmsse = RMSSE)
+  ) |>
+  mutate(
+    level = case_when(
+      is_aggregated(state) ~ "National",
+      is_aggregated(zone) ~ "State",
+      is_aggregated(region) ~ "Zone",
+      TRUE ~ "Region"
+    ),
+    level = factor(level, levels = c("National", "State", "Zone", "Region"))
+  ) |>
+  group_by(.model, level) |>
+  summarise(mase = mean(mase), rmsse = sqrt(mean(rmsse^2))) |>
+  arrange(level, rmsse)
+```
+
+\only<2>{\begin{textblock}{7}(7,5)
+\begin{block}{}\fontsize{13}{14}\sf
+\begin{itemize}\tightlist
+\item OLS is best for all levels except national.
+\item Improvements due to reconciliation are greater at lower levels.
+\end{itemize}
+\end{block}
+\end{textblock}}
+
+## Mean square error bounds
+
+\begin{textblock}{6.4}(9,-0.1)\begin{block}{}
+\citet{htsgeometry}
+\end{block}\end{textblock}
+
+\vspace*{0.2cm}\begin{alertblock}{Distance reducing property}
+Let $\|\bm{u}\|_{\bm{\Psi}} = \bm{u}'\bm{\Psi}\bm{u}$. Then
+  \centerline{$\|\bm{y}_{t+h}-\tilde{\bm{y}}_{t+h|t}\|_{\bm{\Psi}}\le\|\bm{y}_{t+h}-\hat{\bm{y}}_{t+h|t}\|_{\bm{\Psi}}$}
+\end{alertblock}
+
+ * $\bm{\Psi}$-projection is guaranteed to improve forecast accuracy over base forecasts *using this distance measure*.
+ * Distance reduction holds for any realisation and any forecast.
+ * OLS reconciliation minimizes Euclidean distance.
+
+## Mean square error bounds
+
+\begin{textblock}{6.4}(9,-0.1)\begin{block}{}
+\citet{wickramasuriya2021properties}
+\end{block}\end{textblock}
+
+\begin{block}{}\vspace*{-0.6cm}
+\begin{align*}
+\|\bm{y}_{t+h} - \tilde{\bm{y}}_{t+h}\|_2^2
+ &= \|\bm{M}(\bm{y}_{t+h} - \hat{\bm{y}}_{t+h})\|_2^2 \\
+ &\le \|\bm{M}\|_2^2 \|\bm{y}_{t+h} - \hat{\bm{y}}_{t+h}\|_2^2 \\
+ & = \sigma_{\text{max}}^2\|\bm{y}_{t+h} - \hat{\bm{y}}_{t+h}\|_2^2
+\end{align*}
+\end{block}
+
+ * $\sigma_{\text{max}}$ is the largest eigenvalue of $\bm{M}$
+ * $\sigma_{\text{max}}\ge1$ as $\bm{M}$ is a projection matrix.
+ * Every projection reconciliation is better than base forecasts using Euclidean distance.
+
+## Mean square error bounds
+
+\begin{textblock}{6.4}(9,-0.1)\begin{block}{}
+\citet{wickramasuriya2021properties}
+\end{block}\end{textblock}
+\vspace*{0.2cm}\begin{block}{}\vspace*{-0.6cm}
+\begin{align*}
+    & \text{tr}\Big(\E[\bm{y}_{t+h} - \tilde{\bm{y}}^{\text{MinT}}_{t+h|t}]'[\bm{y}_{t+h} - \tilde{\bm{y}}^{\text{MinT}}_{t+h|t}]\Big) \\
+\le~ & \text{tr}\Big(\E[\bm{y}_{t+h} - \tilde{\bm{y}}^{\text{OLS}}_{t+h|t}]'[\bm{y}_{t+h} - \tilde{\bm{y}}^{\text{OLS}}_{t+h|t}]\Big) \\
+\le~ & \text{tr}\Big(\E[\bm{y}_{t+h} - \hat{\bm{y}}_{t+h|t}]'[\bm{y}_{t+h} - \hat{\bm{y}}_{t+h|t}]\Big)
+\end{align*}
+\end{block}
+
+Using sums of variances:
+
+* MinT reconciliation is better than OLS reconciliation
+* OLS reconciliation is better than base forecasts
+
+
+# Improving univariate forecasts
+
+## Temporal reconciliation: quarterly data
+
+\begin{textblock}{7}(1,1.9)
+\begin{tikzpicture}
+  \tikzstyle{every node}=[ellipse,draw,inner sep=0.2pt,fill=red!15,font=\small]
+  \tikzstyle[level distance=.1cm]
+  \tikzstyle[sibling distance=3cm]
+  \tikzstyle{level 1}=[sibling distance=18mm,set style={{every node}+=[fill=yellow]}]
+  \node{Annual}[edge from parent fork down]
+  child {node {Q$_1$}}
+  child {node {Q$_2$}}
+  child {node {Q$_3$}}
+  child {node {Q$_4$}};
+\end{tikzpicture}
+\end{textblock}
+
+\only<3>{\begin{textblock}{8.5}(8.3,1.1)\fontsize{14}{17}\sf
+$$\bm{y}_\tau =
+  \begin{bmatrix}
+    x_{\tau}^{[4]}  \\[0.2cm]
+    x_{\tau,1}^{[1]} \\[0.2cm]
+    x_{\tau,2}^{[1]} \\[0.2cm]
+    x_{\tau,3}^{[1]} \\[0.2cm]
+    x_{\tau,4}^{[1]}
+  \end{bmatrix}
+  \qquad
+  \bm{S} = \begin{bmatrix}
+    1 & 1 & 1 & 1 \\[0.2cm]
+    1 & 0 & 0 & 0 \\[0.2cm]
+    0 & 1 & 0 & 0 \\[0.2cm]
+    0 & 0 & 1 & 0 \\[0.2cm]
+    0 & 0 & 0 & 1
+  \end{bmatrix}
+$$
+\end{textblock}}
+
+\only<2->{\begin{textblock}{8}(.3,5.7)
+  \begin{alertblock}{}
+    \begin{itemize}
+      \item[\color{white}\ding{229}] Forecast series at each available frequency.
+      \item[\color{white}\ding{229}] Optimally combine forecasts within the same year.
+    \end{itemize}
+  \end{alertblock}
+\end{textblock}}
+
+\only<3->{\begin{textblock}{5}(10.3,7.9)
+\fontsize{11}{12}\sf
+$\tau=$ index of largest temporal aggregation level.
+\end{textblock}}
+
+
+## Temporal reconciliation: quarterly data
+
+\begin{textblock}{7}(0.1,1.9)
+\begin{tikzpicture}
+  \tikzstyle{every node}=[ellipse,draw,inner sep=0.2pt,fill=red!15,font=\small]
+  \tikzstyle[level distance=.1cm]
+  \tikzstyle[sibling distance=3cm]
+  \tikzstyle{level 1}=[sibling distance=42mm,set style={{every node}+=[fill=blue!15]}]
+  \tikzstyle{level 2}=[sibling distance=18mm,set style={{every node}+=[fill=yellow]}]
+  \node{Annual}[edge from parent fork down]
+  child {node {Semi-Annual$_1$}
+      child {node {Q$_1$}}
+      child {node {Q$_2$}}
+    }
+  child {node {Semi-Annual$_2$}
+      child {node {Q$_3$}}
+      child {node {Q$_4$}}
+    };
+\end{tikzpicture}
+\end{textblock}
+
+\begin{textblock}{8.5}(8.3,1.1)\fontsize{14}{17}\sf
+$$\bm{y}_\tau =
+  \begin{bmatrix}
+    x_{\tau}^{[4]}  \\[0.2cm]
+    x_{\tau,1}^{[2]} \\[0.2cm]
+    x_{\tau,2}^{[2]} \\[0.2cm]
+    x_{\tau,1}^{[1]} \\[0.2cm]
+    x_{\tau,2}^{[1]} \\[0.2cm]
+    x_{\tau,3}^{[1]} \\[0.2cm]
+    x_{\tau,4}^{[1]}
+  \end{bmatrix}
+  \qquad
+  \bm{S} = \begin{bmatrix}
+    1 & 1 & 1 & 1 \\[0.2cm]
+    1 & 1 & 0 & 0 \\[0.2cm]
+    0 & 0 & 1 & 1 \\[0.2cm]
+    1 & 0 & 0 & 0 \\[0.2cm]
+    0 & 1 & 0 & 0 \\[0.2cm]
+    0 & 0 & 1 & 0 \\[0.2cm]
+    0 & 0 & 0 & 1
+  \end{bmatrix}
+$$
+\end{textblock}
+
+\begin{textblock}{8}(.3,5.7)
+  \begin{alertblock}{}
+    \begin{itemize}
+      \item[\color{white}\ding{229}] Forecast series at each available frequency.
+      \item[\color{white}\ding{229}] Optimally combine forecasts within the same year.
+    \end{itemize}
+  \end{alertblock}
+\end{textblock}
+
+\begin{textblock}{5}(10.3,7.9)
+\fontsize{11}{12}\sf
+$\tau=$ index of largest temporal aggregation level.
+\end{textblock}
+
+## Temporal reconciliation: monthly data
+
+\only<1>{\begin{tikzpicture}
+  \tikzstyle{every node}=[ellipse,draw,inner sep=0.2pt,fill=red!15,font=\small]
+  \tikzstyle[level distance=.1cm]
+  \tikzstyle[sibling distance=7cm]
+  \tikzstyle{level 1}=[sibling distance=72mm,set style={{every node}+=[fill=blue!15]}]
+  \tikzstyle{level 2}=[sibling distance=36mm,set style={{every node}+=[fill=yellow]}]
+  \tikzstyle{level 3}=[sibling distance=12mm,font=\scriptsize,set style={{every node}+=[fill=green]}]
+  \node{Annual}[edge from parent fork down]
+  child {node {Semi-Annual$_1$}
+      child {node {Q$_1$}
+          child {node {\scriptsize M$_1$}}
+          child {node {\scriptsize M$_2$}}
+          child {node {\scriptsize M$_3$}}
+        }
+      child {node {Q$_2$}
+          child {node {\scriptsize M$_4$}}
+          child {node {\scriptsize M$_5$}}
+          child {node {\scriptsize M$_6$}}
+        }
+    }
+  child {node {Semi-Annual$_2$}
+      child {node {Q$_3$}
+          child {node {\scriptsize M$_7$}}
+          child {node {\scriptsize M$_8$}}
+          child {node {\scriptsize M$_9$}}
+        }
+      child {node {Q$_4$}
+          child {node {\scriptsize M$_{10}$}}
+          child {node {\scriptsize M$_{11}$}}
+          child {node {\scriptsize M$_{12}$}}
+        }
+    };
+\end{tikzpicture}}
+\only<2->{\begin{tikzpicture}
+  \tikzstyle{every node}=[ellipse,draw,inner sep=0.2pt,fill=red!15,font=\small]
+  \tikzstyle[level distance=.1cm]
+  \tikzstyle[sibling distance=7cm]
+  \tikzstyle{level 1}=[sibling distance=48mm,set style={{every node}+=[fill=blue!15]}]
+  \tikzstyle{level 2}=[sibling distance=24mm,set style={{every node}+=[fill=yellow]}]
+  \tikzstyle{level 3}=[sibling distance=12mm,set style={{every node}+=[fill=green]}]
+  \node{Annual}[edge from parent fork down]
+  child {node {FourM$_1$}
+      child {node {BiM$_1$}
+          child {node {\scriptsize M$_1$}}
+          child {node {\scriptsize M$_2$}}
+        }
+      child {node {BiM$_2$}
+          child {node {\scriptsize M$_3$}}
+          child {node {\scriptsize M$_4$}}
+        }
+    }
+  child {node {FourM$_2$}
+      child {node {BiM$_3$}
+          child {node {\scriptsize M$_5$}}
+          child {node {\scriptsize M$_6$}}
+        }
+      child {node {BiM$_4$}
+          child {node {\scriptsize M$_7$}}
+          child {node {\scriptsize M$_8$}}
+        }
+    }
+  child {node {FourM$_3$}
+      child {node {BiM$_5$}
+          child {node {\scriptsize M$_9$}}
+          child {node {\scriptsize M$_{10}$}}
+        }
+      child {node {BiM$_6$}
+          child {node {\scriptsize M$_{11}$}}
+          child {node {\scriptsize M$_{12}$}}
+        }
+    };
+\end{tikzpicture}}\pause
+
+\begin{textblock}{14}(1,6.7)
+  \begin{alertblock}{}
+    \begin{itemize}
+      \item[\color{white}\ding{229}] Forecast series at each available frequency.
+      \item[\color{white}\ding{229}] Optimally combine forecasts within the same year.
+    \end{itemize}
+  \end{alertblock}
+\end{textblock}
+
+## Temporal reconciliation: monthly data
+\fontsize{11}{11}\sf
+
+$$
+  \bm{y}_\tau=\begin{bmatrix}
+    x_{\tau}^{[12]}     \\[0.2cm]
+    \bm{x}_{\tau}^{[6]} \\[0.2cm]
+    \bm{x}_{\tau}^{[4]} \\[0.2cm]
+    \bm{x}_{\tau}^{[3]} \\[0.2cm]
+    \bm{x}_\tau^{[2]}   \\[0.2cm]
+    \bm{x}_\tau^{[1]}
+  \end{bmatrix}
+  \qquad
+  \bm{S} = \begin{bmatrix}
+    1                & 1 & 1 & 1 & 1~~~1~~~1~~~1 & 1 & 1 & 1 & 1 \\
+    1                & 1 & 1 & 1 & 1~~~1~~~0~~~0 & 0 & 0 & 0 & 0 \\
+    0                & 0 & 0 & 0 & 0~~~0~~~1~~~1 & 1 & 1 & 1 & 1 \\
+    1                & 1 & 1 & 1 & 0~~~0~~~0~~~0 & 0 & 0 & 0 & 0 \\
+    0                & 0 & 0 & 0 & 1~~~1~~~1~~~1 & 0 & 0 & 0 & 0 \\
+    0                & 0 & 0 & 0 & 0~~~0~~~0~~~0 & 1 & 1 & 1 & 1 \\
+    1                & 1 & 1 & 0 & 0~~~0~~~0~~~0 & 0 & 0 & 0 & 0 \\
+                     &   &   &   & \vdots        &   &   &   &   \\
+    0                & 0 & 0 & 0 & 0~~~0~~~0~~~0 & 0 & 1 & 1 & 1 \\
+    1                & 1 & 0 & 0 & 0~~~0~~~0~~~0 & 0 & 0 & 0 & 0 \\
+                     &   &   &   & \vdots        &   &   &   &   \\
+    0                & 0 & 0 & 0 & 0~~~0~~~0~~~0 & 0 & 0 & 1 & 1 \\[0.2cm]
+    \phantom{\vdots} &   &   &   & \bm{I}_{12}   &   &   &   &
+  \end{bmatrix}
+$$
+
+## Temporal reconciliation
+\fontsize{14}{15}\sf
+
+For a time series  $y_1,\dots,y_T$, observed at frequency $m$:
+\begin{alertblock}{}\vspace*{-0.1cm}
+$$
+  x_j^{[k]} = \sum_{t = (j-1)k+1}^{jk} y_t\qquad \text{for $j = 1,\dots,\lfloor T/k\rfloor$}
+$$
+\end{alertblock}
+* $k \in \mathcal{K} = \{k_1,\dots,k_p\}$ denote the $p$ factors of $m$ in ascending order, where $k_1=1$ and $k_p=m$
+* $x_j^{[1]} = y_t$
+* A single unique hierarchy is only possible when there are no coprime pairs in $\mathcal{K}$.
+* $M_k=m/k$ is seasonal period of aggregated series.
+
+## Temporal reconciliation
+\fontsize{14}{15}\sf\vspace*{-0.5cm}
+$$\bm{x}_\tau = \bm{S} \bm{x}_\tau^{[1]}, \qquad \bm{S} = \begin{bmatrix}\bm{A}\\\bm{I}\end{bmatrix}$$
+where
+$$
+\bm{x}_\tau = \begin{bmatrix*}[l]
+    {x_\tau^{[k_p]}}\\
+    {\bm{x}_\tau^{[k_{p-1}]}}\\
+    \quad\vdots\\
+    {\bm{x}_\tau^{[k_1]}}\\
+  \end{bmatrix*}\qquad
+  \bm{x}_\tau^{[k]} = \begin{bmatrix*}[l]
+    x_{M_k(\tau-1)+1}^{[k]}\\
+    x_{M_k(\tau-1)+2}^{[k]}\\
+    \quad\vdots\\
+    x_{M_k\tau}^{[k]}
+  \end{bmatrix*}\qquad
+\bm{A} =
+  \begin{bmatrix}
+    \bm{1}'_m                                    \\
+    \bm{I}_{m/k_{p-1}} \otimes \bm{1}'_{k_{p-1}} \\
+    \vdots                                       \\
+    \bm{I}_{m/k_{2}} \otimes \bm{1}'_{k_{2}}     \\
+  \end{bmatrix}
+$$
+$\tau$ is time index for most aggregated series,
+
+$k\in \mathcal{K} = \{k_1,\dots,k_p\}$,\quad $k_1=1$,\quad $k_p=m$,\quad $\tau=1,\dots,T/m$.
+
+
+
+
+
+
+## Example: Accident & emergency services demand
+
+Weekly A\&E demand data: 7 November 2010 to 7 June 2015.\fontsize{11}{11.5}\sf
+
+\begin{tabular}{l}
+  \toprule
+  Type 1 Departments --- Major A\&E                               \\
+  Type 2 Departments --- Single Specialty                         \\
+  Type 3 Departments --- Other A\&E/Minor Injury Unit             \\
+  Total Attendances                                               \\
+  Type 1 Departments --- Major A\&E $>$ 2 hours                   \\
+  Type 2 Departments --- Single Specialty $>$ 2 hours             \\
+  Type 3 Departments --- Other A\&E/Minor Injury Unit $>$ 2 hours \\
+  Total Attendances $>$ 2 hours                                   \\
+  Emergency Admissions via Type 1 A\&E                            \\
+  Total Emergency Admissions via A\&E                             \\
+  Other Emergency Admissions (i.e not via A\&E)                   \\
+  Total Emergency Admissions                                      \\
+  Number of patients spending $>$ 2 hours from decision to admit to admission
+\end{tabular}
+
+
+
+## Example: Accident & emergency services demand
+
+\placefig{2.2}{2.2}{height=6.5cm, width=14cm}{AEexample.pdf}
+
+\begin{textblock}{10}(3,1)\fontsize{12}{12}\sf
+  \begin{block}{}\centering
+    Total emergency admissions via A\&E
+  \end{block}
+\end{textblock}
+
+
+## Example: Accident & emergency services demand
+
+Test set: last 52 weeks
+
+\alert{MASE comparison} (ARIMA models)
+
+```{r}
+#| label: ae-table
+
+tibble::tribble(
+  ~`Aggregation Level`, ~h, ~Base, ~Reconciled, ~Change,
+  "Annual", "1"    , 3.4, 1.9, -42.9,
+  "Weekly", "1--52", 2.0, 1.9, -5.0,
+  "Weekly", "13"   , 2.3, 1.9, -16.2,
+  "Weekly", "4"    , 1.9, 1.5, -18.6,
+  "Weekly", "1"    , 1.6, 1.3, -17.2)
+#  |>
+#   dplyr::mutate(Change = paste0(sprintf("%.1f", Change),"%")) |>
+#   kable(booktabs = TRUE, align = "lrrrr") |>
+#   column_spec(5, bold = TRUE)
+```
+
+
+
+
+
+
+## Temporal reconciliation: M3 monthly series
+
+* Apply temporal reconciliation to all 1428 monthly series from M3 competition
+* Forecast horizon $h=18$ months
+* ETS and ARIMA models
+* Measure percentage difference to base forecasts
+* Reconciliation methods:
+  * WLS$_H$ (diagonal)
+  * WLS$_V$ (diagonal with common variances for same frequency)
+  * WLS$_S$ (diagonal/structural)
+
+## Temporal reconciliation: M3 monthly series
+
+\alert{Improvement in MASE relative to base forecasts}
+
+\fontsize{11}{11}\sf
+\tabcolsep=0.15cm
+\centering
+```{r}
+#| label: tab-m3
+options(knitr.kable.NA = '')
+tab <- tibble::tribble(
+  ~`Agg.level`   , ~h ,  ~BU1 , ~WLSH1, ~WLSV1, ~WLSS1, ~BU2,  ~WLSH2, ~WLSV2, ~WLSS2,
+  "Annual"       , 1  , -12.1 , -17.9,  -17.8 , -18.5 ,-25.4 ,  -29.9, -29.9 ,  -30.2,
+  "Semi-annual"  , 3  ,   0.0 , -6.3 ,   -6.0 ,  -6.9 , -2.9 ,   -8.1,  -8.2 ,   -9.4,
+  "Four-monthly" , 4  ,   3.1 , -3.2 ,   -3.0 ,  -3.4 , -1.8 ,   -6.2,  -6.5 ,   -7.1,
+  "Quarterly"    , 6  ,   3.2 , -2.8 ,   -2.7 ,  -3.4 , -2.6 ,   -6.9,  -7.4 ,   -8.1,
+  "Bi-monthly"   , 9  ,   2.7 , -2.9 ,   -3.0 ,  -3.7 , -1.3 ,   -5.0,  -5.5 ,   -6.3,
+  "Monthly"      , 18 ,   0.0 , -3.7 ,   -4.6 ,  -5.0 ,  0.0 ,   -1.9,  -3.2 ,   -3.7,
+  "Average"      , NA  ,  -0.5 , -6.1 ,   -6.2 ,  -6.8 , -5.7 ,   -9.7, -10.1 ,  -10.8
+)
+tab |>
+  kable(
+    booktabs = TRUE,
+    format = "latex",
+    escape = FALSE,
+    linesep = "",
+    col.names = c("Aggregation level", "$h$", "BU", "WLS$_H$", "WLS$_V$", "WLS$_S$", "BU", "WLS$_H$", "WLS$_V$", "WLS$_S$")
+  ) |>
+  add_header_above(c(" " = 2, "ETS" = 4, "ARIMA" = 4)) |>
+  column_spec(c(6,10), bold = TRUE) |>
+  row_spec(6, hline_after = TRUE)
+```
+
+
+
+# Improving multivariate forecasts
+
+## Forecast Linear Augmented Projection (FLAP)
+
+* We want to forecast a multivariate series $\bm{y}_t$.
+* Construct many linear combinations $\bm{c}_t = \bm{\Phi}\bm{y}_t$ of the multivariate series (e.g., principal components or random combinations)
+* Produce univariate forecasts of all series $\hat{\bm{y}}_t$ and all linear combinations $\hat{\bm{c}}_t$.
+* Reconcile forecasts so they are coherent ($\tilde{\bm{c}}_t = \bm{\Phi}\tilde{\bm{y}}_t$)
+
+\pause\vspace*{-0.4cm}
+
+$$
+\bm{z}_t = \begin{bmatrix} \bm{y}_t\\ \bm{c}_t \end{bmatrix}
+\qquad \tilde{\bm{z}}_{t+h} = \bm{M} \hat{\bm{z}}_{t+h}
+$$
+where $\bm{M}$ is a projection matrix onto the coherent subspace.
+
+## Forecast error variance reduction
+
+* The variance reduction $\Var(\bm{y}_{t+h} - \hat{\bm{y}}_{t+h}) -\Var(\bm{y}_{t+h} - \tilde{\bm{y}}_{t+h})$
+is __positive semi-definite__.
+
+* The diagonal elements of $\Var(\bm{y}_{t+h} - \hat{\bm{y}}_{t+h}) -\Var(\bm{y}_{t+h} - \tilde{\bm{y}}_{t+h})$ are non-decreasing as the number of components increases.
+
+## Minimum variance of individual series
+
+The projection is equivalent to the mapping
+$$
+\tilde{\bm{y}}_{t+h} = \bm{G}\hat{\bm{z}}_{t+h},
+$$
+where $\bm{G} = \big[\bm{g}_1 ~~ \bm{g}_2 ~~ \dots ~~ \bm{g}_m\big]' \in \mathbb{R}^{m\times (m+p)}$ is the solution to
+$$
+\underset{\bm{G}}{\arg\min}\ \bm{G}\bm{W}_h\bm{G}'
+\qquad \text{s.t. } \bm{G}\bm{S} = \bm{I}
+$$
+or
+$$
+\underset{\bm{g}_i}{\arg\min}\ \bm{g}_i'\bm{W}_h\bm{g}_i
+\qquad \text{s.t. } \bm{g}_i'\bm{s}_{j} = \bm{1}(i=j),
+$$
+where $\bm{S} = \begin{bmatrix}\bm{I}_m \\\bm{\Phi}\end{bmatrix} = \big[\bm{s}_1\cdots \bm{s}_m\big]$.
+
+## Key results
+
+1. The forecast error variance is __reduced__ with FLAP
+1. The forecast error variance __monotonically__ decreases with increasing number of components
+1. The forecast projection is __optimal__ to achieve minimum forecast error variance of each series
+
+\pause
+
+In practice, we need to:
+
+* Estimate $\bm{W}_h = \Var(\bm{z}_{t+h} - \hat{\bm{z}}_{t+h})$. (We can use the MinT shrinkage estimator.)
+* Construct the components, $\bm{\Phi}$.
+
+## Construction of $\bm{\Phi}$
+
+### Principal component analysis (PCA)
+
+Finding the weights matrix $\bm{\Phi}$ so that the resulting components \alert{\textbf{maximise variance}}
+
+### Simulation
+
+Generating values of $\bm{\Phi}$ from a random distribution and normalising them to unit vectors
+
+* Normal distribution
+* Uniform distribution
+* Orthonormal matrix
+
+## Monthly Australian regional tourism
+
+* Monthly Australian tourism data set aggregated by region giving 77 series, from Jan 1998 to Dec 2019
+
+* Use expanding window time series cross-validation with $T=84$ observations in first training set, and forecast horizons $h=1,2,\dots,12$.
+
+
+## Monthly Australian regional tourism
+
+```{r}
+#| label: aus-visnights
+visnights <- readr::read_csv(here::here("data/visnights_monthly.csv")) |>
+  mutate(Month = yearmonth(Month)) |>
+  group_by(Month, Region) |>
+  summarise(Nights = sum(Nights), .groups = "drop")
+```
+
+```{r}
+#| label: series
+#| fig-height: 5
+regions <- c("Melbourne", "Canberra", "Fraser Coast", "Central Highlands")
+
+visnights |>
+  filter(Region %in% regions) |>
+  ggplot() +
+  geom_line(aes(x = Month, y = Nights)) +
+  facet_grid("Region", scales = "free")
+```
+
+## Monthly Australian regional tourism
+
+```{r}
+#| label: components
+source(here::here("component.R"))
+visnights_wide <- visnights |>
+  pivot_wider(names_from = Region, values_from = Nights)
+col_month <- select(visnights_wide, Month)
+visnights_wide |>
+  select(-Month) |>
+  as.matrix() |>
+  component() |>
+  getElement("x") %>%
+  bind_cols(col_month, .) |>
+  pivot_longer(-Month,
+               names_to = "Component",
+               values_to = "Value") |>
+  filter(Component %in% unique(Component)[seq_len(4)]) |>
+  ggplot() +
+  geom_line(aes(x = Month, y = Value)) +
+  facet_grid("Component", scales = "free")
+```
+
+
+## Monthly Australian regional tourism
+
+```{r visnights}
+m <- 77
+qs::qread(here::here("output/tourism_mse.qs")) |>
+  filter(h %in% c(1, 6, 12)) |>
+  mutate(
+    Component = case_match(paste(proj, Phi, sep = "."),
+      "TRUE.PCA_normal" ~ "PCA+Norm.",
+      "FALSE.NA" ~ "No Proj.",
+      "TRUE.normal" ~ "Norm."
+    )
+  ) |>
+  filter(!is.na(Component)) |>
+  ggplot(aes(x = p, y = value, color = Component)) +
+  geom_vline(xintercept = m) +
+  geom_line() +
+  geom_hline(data = \(df) filter(df, !proj), aes(yintercept = value, color = Component)) +
+  facet_grid(rows = "h", scales = "free", labeller = label_both) +
+  ylab("MSE")
+```
+
+## FRED-MD
+
+* Monthly data of macroeconomic variables (McCracken and Ng, 2016).
+
+* Data from Jan 1959 -- Sep 2023. 777 observations on 122 series.
+
+* Same cleaning process as per McCracken and Ng (2016).
+
+* All series scaled to have mean 0 and variance 1.
+
+* Expanding time series cross-validation with initial size of 25 years and forecast horizon 12 months.
+
+```{r}
+#| label: fred-md
+m <- 122
+mse <- qs::qread(here::here("output/fred_mse.qs")) |>
+  tibble::as_tibble() |>
+  filter(model %in% c("arima", "dfm"), h %in% c(1, 6, 12)) |>
+  filter(Phi %in% c("NA", "normal", "PCA_normal")) |>
+  mutate(
+    Component = case_when(
+      !proj ~ "No projection",
+      Phi == "normal" ~ "Normal",
+      Phi == "PCA_normal" ~ "PCA + Normal"
+    )
+  )
+```
+
+## FRED-MD (ARIMA)
+
+```{r}
+#| label: fred-md-arima
+mse |>
+  filter(model == "arima") |>
+  ggplot(aes(x = p, y = value, color = Component)) +
+  geom_vline(xintercept = m) +
+  geom_hline(data = filter(mse, !proj & model == "arima"),
+             aes(yintercept = value, color = Component)) +
+  geom_line() +
+  facet_grid(rows = "h", scales = "free", labeller = label_both) +
+  ylab("MSE") +
+  scale_x_continuous(expand = expansion(mult = 0)) +
+  scale_color_manual(values = c("#D55E00", "#0072B2","#009E73"),
+                    breaks = c("No projection", "Normal", "PCA + Normal"))
+```
+
+## FRED-MD (DFM)
+
+```{r}
+#| label: fred-md-dfm
+mse |>
+  filter(model == "dfm") |>
+  ggplot(aes(x = p, y = value, color = Component)) +
+  geom_vline(xintercept = m) +
+  geom_hline(data = filter(mse, !proj & model == "dfm"),
+             aes(yintercept = value, color = Component)) +
+  geom_line() +
+  facet_grid(rows = "h", scales = "free", labeller = label_both) +
+  ylab("MSE") +
+  scale_x_continuous(expand = expansion(mult = 0)) +
+  scale_color_manual(values = c("#D55E00", "#0072B2","#009E73"),
+                    breaks = c("No projection", "Normal", "PCA + Normal"))
+```
+
+## Simulation
+
+* Data generating process: VAR($3$) with 70 variables
+
+* Sample size: $T=400$
+
+* Number of repeated samples: $220$
+
+* Base models:
+
+  * automatic ARIMA (based on AICc)
+  * DFM (structure chosen using BIC, different model for each horizon)
+
+## Simulation
+
+```{r simulation}
+m <- 70
+mse <- qs::qread(here::here("output/simulation_mse.qs")) |>
+  as_tibble() |>
+  filter(model %in% c("arima", "dfm", "var", "true"),
+         Phi %in% c("PCA_normal") | is.na(Phi),
+         h %in% c(1, 6)) |>
+  mutate(
+    Component = case_when(
+      !proj ~ "No projection",
+      proj & Phi == "PCA_normal" ~ "PCA + Normal",
+      TRUE ~ "Other"
+    )
+  )
+mse |>
+  ggplot(aes(x = p, y = value, colour = model, linetype = Component)) +
+  geom_vline(xintercept = m) +
+  geom_line() +
+  geom_hline(data = filter(mse, !proj),
+             aes(yintercept = value, colour = model, linetype = Component)) +
+  facet_grid(rows = "h", scales = "free", labeller = label_both) +
+  ylab("MSE") +
+  scale_color_manual(
+    name = "Model",
+    values = cb_palette_grey[c(7, 6, 4, 2)],
+    labels = c(
+      "arima" = "ARIMA",
+      "dfm" = "DFM",
+      "true" = "VAR - DGP",
+      "var" = "VAR - Est.")) +
+  scale_linetype_manual(
+    name = "Component",
+    values = c("dashed", "solid"),
+    labels = c("No projection", "PCA + Normal")
+  )
+```
+
+## Future research directions
+
+* Investigate why PCA performs better than random weights
+
+* Find other components that are better than PCA
+
+* Find optimal components by minimising forecast error variance with respect to $\bm{\Phi}$
+
+* Use forecast projection and forecast reconciliation together
+
+
+# Final comments
+
+## Software
+\fontsize{10}{12}\sf\vspace*{0.3cm}\tabcolsep=0.12cm
+
+\hspace*{-0.3cm}\begin{tabular}{@{}llP{1.4cm}cP{1.4cm}cc@{}}
+\toprule
+Package                                                                      & Language  & Cross-sectional  & Temporal    & Cross-temporal  & Probabilistic & Multivariate \\
+\midrule
+\texttt{\href{https://pkg.earo.me/hts/}{hts}}
+    & R         & \checkmark       &             &                 & \\
+\texttt{\href{http://pkg.robjhyndman.com/thief/}{thief}}
+    & R         &                  & \checkmark  &                 & \\
+\texttt{\href{https://fable.tidyverts.org}{fable}}
+    & R         & \checkmark       &             &                 & \checkmark\\
+\texttt{\href{https://danigiro.github.io/FoReco/}{FoReco}}
+    & R         & \checkmark       & \checkmark  & \checkmark      & \checkmark\\
+\texttt{\href{https://cran.r-project.org/package=flap}{flap}}
+    & R & & & & & \checkmark \\
+\texttt{\href{https://angelpone.github.io/pyhts/}{pyhts}}
+    & Python    & \checkmark       & \checkmark  &                 & \\
+\texttt{\href{https://nixtla.github.io/hierarchicalforecast/}{hierarchicalforecast}}
+    & Python    & \checkmark       &             &                 & \checkmark \\
+\bottomrule
+\end{tabular}
+
+* `hts`, `thief`, and `FoReco` use `ts` objects
+* `fable` uses `tsibble` objects
+* `flap` uses matrices of base forecasts
+* `fable` has plans to implement temporal and cross-temporal reconciliation
+
+## Thanks!
+
+\placefig{0}{1.2}{trim = 10 45 0 0, clip=TRUE, width=10cm, height=2.5cm}{roman}
+\placefig{2}{1.2}{trim = 0 40 0 0, clip=TRUE, width=10cm, height=2.5cm}{george}
+\placefig{4}{1.2}{trim = 0 10 0 0, clip=TRUE, width=10cm, height=2.5cm}{hanlin}
+\placefig{6}{1.2}{trim = 10 0 0 0, clip=TRUE, width=10cm, height=2.5cm}{earowang}
+\placefig{8}{1.2}{trim = 0 15 0 0, clip=TRUE, width=10cm, height=2.5cm}{alanlee}
+\placefig{10}{1.2}{trim = 30 0 0 0, clip=TRUE, width=10cm, height=2.5cm}{mitch}
+\placefig{12}{1.2}{trim = 15 0 0 0, clip=TRUE, width=10cm, height=2.5cm}{shanika}
+\placefig{14}{1.2}{trim = 0 0 0 0, clip=TRUE, width=10cm, height=2.5cm}{tas}
+
+\placefig{0}{3.8}{trim = 30 10 30 0, clip=TRUE, width=10cm, height=2.5cm}{puwasala}
+\placefig{2}{3.8}{trim = 0 10 0 0, clip=TRUE, width=10cm, height=2.5cm}{fotios}
+\placefig{4}{3.8}{trim = 0 30 30 20, clip=TRUE, width=10cm, height=2.5cm}{nikos}
+\placefig{6}{3.8}{trim = 50 30 0 0, clip=TRUE, width=10cm, height=2.5cm}{souhaib}
+\placefig{8}{3.8}{trim = 110 40 50 0, clip=TRUE, width=10cm, height=2.5cm}{james}
+\placefig{10}{3.8}{trim = 40 40 0 0, clip=TRUE, width=10cm, height=2.5cm}{mahdi}
+\placefig{12}{3.8}{trim = 50 50 0 0, clip=TRUE, width=10cm, height=2.5cm}{christoph}
+\placefig{14}{3.8}{trim = 50 50 0 20, clip=TRUE, width=10cm, height=2.5cm}{fin}
+
+\placefig{0}{6.4}{trim = 10 0 0 0, clip=TRUE, width=10cm, height=2.5cm}{berwin}
+\placefig{2}{6.4}{trim = 10 20 0 0, clip=TRUE, width=10cm, height=2.5cm}{galit}
+\placefig{4}{6.4}{trim = 10 0 0 0, clip=TRUE, width=10cm, height=2.5cm}{mahsa}
+\placefig{6}{6.4}{trim = 30 0 0 0, clip=TRUE, width=10cm, height=2.5cm}{evan}
+\placefig{8}{6.4}{trim = 5 25 0 0, clip=TRUE, width=10cm, height=2.5cm}{bahman}
+\placefig{10}{6.4}{trim = 0 40 0 0, clip=TRUE, width=10cm, height=2.5cm}{pablo}
+\placefig{12}{6.4}{trim = 0 40 0 0, clip=TRUE, width=10cm, height=2.5cm}{danielegiro}
+\placefig{14}{6.4}{trim = 0 0 0 30, clip=TRUE, width=10cm, height=2.5cm}{tommy}
+
+## More information
+\fontsize{18}{20}\sf
+
+\href{https://robjhyndman.com}{\faicon{home} robjhyndman.com}
+
+\href{https://aus.social/@robjhyndman}{\includegraphics[width=0.5cm]{figs/mastodon}\, aus.social/@robjhyndman}
+
+\href{https://github.com/robjhyndman}{\faicon{github}  @robjhyndman}
+
+\href{mailto:rob.hyndman@monash.edu}{\faicon{envelope}  rob.hyndman@monash.edu}
+
+\vspace*{1cm}
+
+\begin{block}{}
+\centerline{\href{https://robjhyndman.com/curtin2024}{robjhyndman.com/curtin2024}}
+\end{block}
+
+
+
+\nocite{Di_FonGir2022a,temporal-hierarchies,ctprob}
+\nocite{hierarchical,hfreview,coherentprob,htsgeometry,mint,flap}
+
