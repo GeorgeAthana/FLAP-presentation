@@ -204,14 +204,6 @@ $$
 \bm{J} = \big[\bm{I}_m ~~~ \bm{O}_{m\times p}\big]
 $$
 
-
-## Forecast error variance reduction
-
-* The variance reduction $\Var(\bm{y}_{t+h} - \textcolor{blue}{\hat{\bm{y}}_{t+h}}) -\Var(\bm{y}_{t+h} - \textcolor{red}{\tilde{\bm{y}}_{t+h}})$
-is __positive semi-definite__.
-
-* The diagonal elements of $\Var(\bm{y}_{t+h} - \textcolor{blue}{\hat{\bm{y}}_{t+h}}) -\Var(\bm{y}_{t+h} - \textcolor{red}{\tilde{\bm{y}}_{t+h}})$ are non-decreasing as the number of components increases.
-
 ## Minimum variance of individual series
 
 The projection is equivalent to the mapping
@@ -232,30 +224,32 @@ where $\bm{S} = \begin{bmatrix}\bm{I}_m \\\bm{\Phi}\end{bmatrix} = \big[\bm{s}_1
 
 ## Key results
 
-1. The forecast error variance is **reduced** with FLAP.
-1. The forecast error variance **monotonically** decreases with increasing number of components.
-1. The forecast projection is **optimal** to achieve minimum forecast error variance of each series.
+1. The forecast error variance is **reduced** with FLAP 
+   - $\Var(\bm{y}_{t+h} - \textcolor{blue}{\hat{\bm{y}}_{t+h}}) -\Var(\bm{y}_{t+h} - \textcolor{red}{\tilde{\bm{y}}_{t+h}})$
+is __positive semi-definite__. \pause
 
-\pause
+\vspace*{0.3cm}
 
-In practice, we need to:
+2. The forecast error variance **monotonically** decreases with increasing number of components 
+   - the diagonal elements of $\Var(\bm{y}_{t+h} - \textcolor{blue}{\hat{\bm{y}}_{t+h}}) -\Var(\bm{y}_{t+h} - \textcolor{red}{\tilde{\bm{y}}_{t+h}})$ are non-decreasing as the number of components increases. \pause
 
-* Estimate $\bm{W}_h = \Var(\bm{z}_{t+h} - \textcolor{blue}{\hat{\bm{z}}_{t+h})}$. (Use in-sample residuals, shrink variances to their median, covariances to zero.)
+\vspace*{0.3cm}
+
+3. The forecast projection is **optimal** to achieve minimum forecast error variance of each series.
+
+## In practice, we need to:
+
+* Estimate $\bm{W}_h = \Var(\bm{z}_{t+h} - \textcolor{blue}{\hat{\bm{z}}_{t+h})}$. 
+    * Use in-sample residuals, shrink variances to their median, covariances to zero.
+
+\pause\vspace*{0.3cm}
+
 * Construct the components, $\bm{\Phi}$.
-
-## Construction of $\bm{\Phi}$
-
-### Principal component analysis (PCA)
-
-Finding the weights matrix $\bm{\Phi}$ so that the resulting components \alert{\textbf{maximise variance}}
-
-### Simulation
-
-Generating values of $\bm{\Phi}$ from a random distribution and normalising them to unit vectors
-
-* Normal distribution
-* Uniform distribution
-* Orthonormal matrix
+     * Principal component analysis (PCA): find the weights matrix $\bm{\Phi}$ so that the resulting components \alert{\textbf{maximise variance}}.
+    * Simulation: generate values of $\bm{\Phi}$ from a random distribution and normalising them to unit vectors.
+       * Normal distribution
+       * Uniform distribution
+       * Orthonormal matrix
 
 ## Simulation
 
@@ -469,7 +463,21 @@ or the development version from Github
 # install.packages("remotes")
 remotes::install_github("FinYang/flap")
 ```
+## Slides and other information
 
+**Slides:**
+
+[\color{Blue}{https://github.com/GeorgeAthana/2024-INFORMS}](https://github.com/GeorgeAthana/2024-INFORMS)
+
+\vspace*{1cm}
+
+**Other information:**
+
+[\color{Blue}{https://research.monash.edu/en/persons/george-athanasopoulos}](https://research.monash.edu/en/persons/george-athanasopoulos)
+
+\vspace*{0.5cm}
+
+\alert{Thank you!}
 
 <!-- \nocite{Di_FonGir2022a,temporal-hierarchies,ctprob} -->
 <!-- \nocite{hierarchical,hfreview,coherentprob,htsgeometry,mint} -->

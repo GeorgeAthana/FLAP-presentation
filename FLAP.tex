@@ -454,20 +454,6 @@ $$\vspace*{-0.8cm}
 \]
 \end{frame}
 
-\begin{frame}{Forecast error variance reduction}
-\phantomsection\label{forecast-error-variance-reduction}
-\begin{itemize}
-\item
-  The variance reduction
-  \(\Var(\bm{y}_{t+h} - \textcolor{blue}{\hat{\bm{y}}_{t+h}}) -\Var(\bm{y}_{t+h} - \textcolor{red}{\tilde{\bm{y}}_{t+h}})\)
-  is \textbf{positive semi-definite}.
-\item
-  The diagonal elements of
-  \(\Var(\bm{y}_{t+h} - \textcolor{blue}{\hat{\bm{y}}_{t+h}}) -\Var(\bm{y}_{t+h} - \textcolor{red}{\tilde{\bm{y}}_{t+h}})\)
-  are non-decreasing as the number of components increases.
-\end{itemize}
-\end{frame}
-
 \begin{frame}{Minimum variance of individual series}
 \phantomsection\label{minimum-variance-of-individual-series}
 The projection is equivalent to the mapping \[
@@ -489,58 +475,93 @@ is the solution to \[
 \begin{enumerate}
 \tightlist
 \item
-  The forecast error variance is \textbf{reduced} with FLAP.
+  The forecast error variance is \textbf{reduced} with FLAP
+
+  \begin{itemize}
+  \tightlist
+  \item
+    \(\Var(\bm{y}_{t+h} - \textcolor{blue}{\hat{\bm{y}}_{t+h}}) -\Var(\bm{y}_{t+h} - \textcolor{red}{\tilde{\bm{y}}_{t+h}})\)
+    is \textbf{positive semi-definite}. \pause
+  \end{itemize}
+\end{enumerate}
+
+\vspace*{0.3cm}
+
+\begin{enumerate}
+\setcounter{enumi}{1}
+\tightlist
 \item
   The forecast error variance \textbf{monotonically} decreases with
-  increasing number of components.
+  increasing number of components
+
+  \begin{itemize}
+  \tightlist
+  \item
+    the diagonal elements of
+    \(\Var(\bm{y}_{t+h} - \textcolor{blue}{\hat{\bm{y}}_{t+h}}) -\Var(\bm{y}_{t+h} - \textcolor{red}{\tilde{\bm{y}}_{t+h}})\)
+    are non-decreasing as the number of components increases. \pause
+  \end{itemize}
+\end{enumerate}
+
+\vspace*{0.3cm}
+
+\begin{enumerate}
+\setcounter{enumi}{2}
+\tightlist
 \item
   The forecast projection is \textbf{optimal} to achieve minimum
   forecast error variance of each series.
 \end{enumerate}
+\end{frame}
 
-\pause
-
-In practice, we need to:
-
+\begin{frame}{In practice, we need to:}
+\phantomsection\label{in-practice-we-need-to}
 \begin{itemize}
 \tightlist
 \item
   Estimate
   \(\bm{W}_h = \Var(\bm{z}_{t+h} - \textcolor{blue}{\hat{\bm{z}}_{t+h})}\).
-  (Use in-sample residuals, shrink variances to their median,
-  covariances to zero.)
-\item
-  Construct the components, \(\bm{\Phi}\).
+
+  \begin{itemize}
+  \tightlist
+  \item
+    Use in-sample residuals, shrink variances to their median,
+    covariances to zero.
+  \end{itemize}
 \end{itemize}
-\end{frame}
 
-\begin{frame}{Construction of \(\bm{\Phi}\)}
-\phantomsection\label{construction-of-bmphi}
-\begin{block}{Principal component analysis (PCA)}
-\phantomsection\label{principal-component-analysis-pca}
-Finding the weights matrix \(\bm{\Phi}\) so that the resulting
-components \alert{\textbf{maximise variance}}
-\end{block}
-
-\begin{block}{Simulation}
-\phantomsection\label{simulation}
-Generating values of \(\bm{\Phi}\) from a random distribution and
-normalising them to unit vectors
+\pause\vspace*{0.3cm}
 
 \begin{itemize}
 \tightlist
 \item
-  Normal distribution
-\item
-  Uniform distribution
-\item
-  Orthonormal matrix
+  Construct the components, \(\bm{\Phi}\).
+
+  \begin{itemize}
+  \tightlist
+  \item
+    Principal component analysis (PCA): find the weights matrix
+    \(\bm{\Phi}\) so that the resulting components
+    \alert{\textbf{maximise variance}}.
+  \item
+    Simulation: generate values of \(\bm{\Phi}\) from a random
+    distribution and normalising them to unit vectors.
+
+    \begin{itemize}
+    \tightlist
+    \item
+      Normal distribution
+    \item
+      Uniform distribution
+    \item
+      Orthonormal matrix
+    \end{itemize}
+  \end{itemize}
 \end{itemize}
-\end{block}
 \end{frame}
 
 \begin{frame}[fragile]{Simulation}
-\phantomsection\label{simulation-1}
+\phantomsection\label{simulation}
 \begin{itemize}
 \item
   Data generating process: VAR(\(3\)) with \(m=70\) variables
@@ -565,7 +586,7 @@ normalising them to unit vectors
 \end{frame}
 
 \begin{frame}{Simulation}
-\phantomsection\label{simulation-2}
+\phantomsection\label{simulation-1}
 \includegraphics{FLAP_files/figure-beamer/simulation-1.pdf}
 \end{frame}
 
@@ -662,6 +683,23 @@ or the development version from Github
 \NormalTok{remotes}\SpecialCharTok{::}\FunctionTok{install\_github}\NormalTok{(}\StringTok{"FinYang/flap"}\NormalTok{)}
 \end{Highlighting}
 \end{Shaded}
+\end{frame}
+
+\begin{frame}{Slides and other information}
+\phantomsection\label{slides-and-other-information}
+\textbf{Slides:}
+
+\href{https://github.com/GeorgeAthana/2024-INFORMS}{\color{Blue}{https://github.com/GeorgeAthana/2024-INFORMS}}
+
+\vspace*{1cm}
+
+\textbf{Other information:}
+
+\href{https://research.monash.edu/en/persons/george-athanasopoulos}{\color{Blue}{https://research.monash.edu/en/persons/george-athanasopoulos}}
+
+\vspace*{0.5cm}
+
+\alert{Thank you!}
 \end{frame}
 
 
