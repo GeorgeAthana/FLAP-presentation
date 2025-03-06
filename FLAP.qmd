@@ -74,7 +74,7 @@ crop::dev.off.crop(here::here("figs/aus_map.pdf"))
 ```
 
 \begin{textblock}{5}(2,1.5)
-\centerline{\includegraphics[width=14cm,height=7cm]{figs/aus_map_nolegend.png}}
+\centerline{\includegraphics[width=8cm,height=7cm]{figs/aus_map_nolegend.png}}
 \end{textblock}
 
 
@@ -159,11 +159,11 @@ We have multivariate times series:
 
 ## Geometry of FLAP 
 
-\only<1>{\includegraphics[page=1, width=\textwidth]{figs/FLAP_geometry.pdf}}
-\only<2>{\includegraphics[page=2, width=\textwidth]{figs/FLAP_geometry.pdf}}
-\only<3>{\includegraphics[page=3, width=\textwidth]{figs/FLAP_geometry.pdf}}
-\only<4>{\includegraphics[page=4, width=\textwidth]{figs/FLAP_geometry.pdf}}
-\only<5>{\includegraphics[page=5, width=\textwidth]{figs/FLAP_geometry.pdf}}
+\only<1>{\includegraphics[page=1, width=12cm]{figs/FLAP_geometry.pdf}}
+\only<2>{\includegraphics[page=2, width=12cm]{figs/FLAP_geometry.pdf}}
+\only<3>{\includegraphics[page=3, width=12cm]{figs/FLAP_geometry.pdf}}
+\only<4>{\includegraphics[page=4, width=12cm]{figs/FLAP_geometry.pdf}}
+\only<5>{\includegraphics[page=5, width=12cm]{figs/FLAP_geometry.pdf}}
 
 
 <!-- \input{figs/FLAP_geometry.tex} -->
@@ -175,7 +175,7 @@ We have multivariate times series:
 \vspace*{-0.6cm}
 
 $$
-\bm{z}_t = \begin{bmatrix} \bm{y}_t\\ \bm{c}_t \end{bmatrix},
+\bm{z}_t = \begin{bmatrix} \bm{y}_t\\ \bm{c}_t \end{bmatrix} = \begin{bmatrix} \bm{y}_t\\ \bm{\Phi}\bm{y}_t \end{bmatrix},
 \qquad \textcolor{blue}{\hat{\bm{z}}_{t+h}} = \begin{bmatrix} \textcolor{blue}{\hat{\bm{y}}_{t+h}}\\ \textcolor{blue}{\hat{\bm{c}}_{t+h}}\end{bmatrix}, 
 \qquad\textcolor{red}{\tilde{\bm{z}}_{t+h}} = \bm{M} \textcolor{blue}{\hat{\bm{z}}_{t+h}}
 $$
@@ -467,7 +467,7 @@ remotes::install_github("FinYang/flap")
 
 **Slides:**
 
-[\color{Blue}{https://github.com/GeorgeAthana/2024-INFORMS}](https://github.com/GeorgeAthana/2024-INFORMS)
+[\color{Blue}{https://github.com/GeorgeAthana/FLAP-presentation}](https://github.com/GeorgeAthana/FLAP-presentation)
 
 \vspace*{1cm}
 

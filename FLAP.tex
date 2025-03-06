@@ -103,15 +103,17 @@
 \makeatother
 \usepackage{graphicx}
 \makeatletter
-\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
-\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
-\makeatother
-% Scale images if necessary, so that they will not overflow the page
-% margins by default, and it is still possible to overwrite the defaults
-% using explicit options in \includegraphics[width, height, ...]{}
-\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+\newsavebox\pandoc@box
+\newcommand*\pandocbounded[1]{% scales image to fit in text height/width
+  \sbox\pandoc@box{#1}%
+  \Gscale@div\@tempa{\textheight}{\dimexpr\ht\pandoc@box+\dp\pandoc@box\relax}%
+  \Gscale@div\@tempb{\linewidth}{\wd\pandoc@box}%
+  \ifdim\@tempb\p@<\@tempa\p@\let\@tempa\@tempb\fi% select the smaller of both
+  \ifdim\@tempa\p@<\p@\scalebox{\@tempa}{\usebox\pandoc@box}%
+  \else\usebox{\pandoc@box}%
+  \fi%
+}
 % Set default figure placement to htbp
-\makeatletter
 \def\fps@figure{htbp}
 \makeatother
 
@@ -242,9 +244,6 @@
 \@ifpackageloaded{subcaption}{}{\usepackage{subcaption}}
 \makeatother
 
-\ifLuaTeX
-  \usepackage{selnolig}  % disable illegal ligatures
-\fi
 \usepackage[natbib,style=authoryear]{biblatex}
 \addbibresource{hts.bib}
 \usepackage{bookmark}
@@ -281,8 +280,8 @@
 \definecolor{LightOrange}{RGB}{255, 193, 7}
 \setbeamercolor{description item}{fg=Orange}
 \setbeamercolor{block title alerted}{fg=white,bg=Black}
-\setbeamercolor{block title}{fg=white,bg=DarkBlue}
-\setbeamercolor{frametitle}{bg=DarkBlue,fg=white}
+\setbeamercolor{block title}{fg=white,bg=Blue}
+\setbeamercolor{frametitle}{bg=Blue,fg=white}
 
 \newcolumntype{M}[1]{>{\centering\arraybackslash}m{#1}}
 \newcolumntype{L}[1]{>{\raggedright\arraybackslash}m{#1}}
@@ -306,7 +305,7 @@
 \begin{textblock}{15.5}(.5,1.35)
 \fontsize{12}{14}\selectfont\sffamily\textcolor[RGB]{204,89,0}{\insertauthor}
 \end{textblock}
-\placefig{.5}{8}{height=0.8cm, width=20cm}{monash_white}
+\placefig{.5}{8}{height=0.8cm, width=8cm}{monash_white}
 \begin{textblock}{6.2}(13.4,8.75)
 \fontsize{4}{4}\sf\textcolor[HTML]{A0792E}{Photo by \href{https://unsplash.com/@stanleyc?utm_content=creditCopyText&utm_medium=referral&utm_source=unsplash}{Stanley Cheung} on \href{"https://unsplash.com/photos/people-standing-on-stadium-during-night-time-sJ064KhsMok?utm_content=creditCopyText&utm_medium=referral&utm_source=unsplash"}{Unsplash}}
 \end{textblock}}
@@ -321,7 +320,6 @@
 Anastasios Panagiotelis}
 \date{}
 \titlegraphic{\includegraphics{bg-02.png}}
-
 \begin{document}
 \frame{\titlepage}
 \begin{abstract}
@@ -337,7 +335,7 @@ accuracy.
 \begin{frame}{Australian tourism regions}
 \phantomsection\label{australian-tourism-regions}
 \begin{textblock}{5}(2,1.5)
-\centerline{\includegraphics[width=14cm,height=7cm]{figs/aus_map_nolegend.png}}
+\centerline{\includegraphics[width=8cm,height=7cm]{figs/aus_map_nolegend.png}}
 \end{textblock}
 
 \begin{textblock}{5}(9.4,2.4)
@@ -354,11 +352,11 @@ accuracy.
 
 \begin{frame}{Regions V Aggregate}
 \phantomsection\label{regions-v-aggregate}
-\includegraphics{FLAP_files/figure-beamer/unnamed-chunk-5-1.pdf}
+\pandocbounded{\includegraphics[keepaspectratio]{FLAP_files/figure-beamer/unnamed-chunk-5-1.pdf}}
 
 \pause
 
-\includegraphics{FLAP_files/figure-beamer/unnamed-chunk-6-1.pdf}
+\pandocbounded{\includegraphics[keepaspectratio]{FLAP_files/figure-beamer/unnamed-chunk-6-1.pdf}}
 \end{frame}
 
 \begin{frame}{FLAP Intuition}
@@ -411,11 +409,11 @@ We have multivariate times series:
 
 \begin{frame}{Geometry of FLAP}
 \phantomsection\label{geometry-of-flap}
-\only<1>{\includegraphics[page=1, width=\textwidth]{figs/FLAP_geometry.pdf}}
-\only<2>{\includegraphics[page=2, width=\textwidth]{figs/FLAP_geometry.pdf}}
-\only<3>{\includegraphics[page=3, width=\textwidth]{figs/FLAP_geometry.pdf}}
-\only<4>{\includegraphics[page=4, width=\textwidth]{figs/FLAP_geometry.pdf}}
-\only<5>{\includegraphics[page=5, width=\textwidth]{figs/FLAP_geometry.pdf}}
+\only<1>{\includegraphics[page=1, width=12cm]{figs/FLAP_geometry.pdf}}
+\only<2>{\includegraphics[page=2, width=12cm]{figs/FLAP_geometry.pdf}}
+\only<3>{\includegraphics[page=3, width=12cm]{figs/FLAP_geometry.pdf}}
+\only<4>{\includegraphics[page=4, width=12cm]{figs/FLAP_geometry.pdf}}
+\only<5>{\includegraphics[page=5, width=12cm]{figs/FLAP_geometry.pdf}}
 \end{frame}
 
 \begin{frame}{FLAP Projection}
@@ -423,7 +421,7 @@ We have multivariate times series:
 \vspace*{-0.6cm}
 
 \[
-\bm{z}_t = \begin{bmatrix} \bm{y}_t\\ \bm{c}_t \end{bmatrix},
+\bm{z}_t = \begin{bmatrix} \bm{y}_t\\ \bm{c}_t \end{bmatrix} = \begin{bmatrix} \bm{y}_t\\ \bm{\Phi}\bm{y}_t \end{bmatrix},
 \qquad \textcolor{blue}{\hat{\bm{z}}_{t+h}} = \begin{bmatrix} \textcolor{blue}{\hat{\bm{y}}_{t+h}}\\ \textcolor{blue}{\hat{\bm{c}}_{t+h}}\end{bmatrix}, 
 \qquad\textcolor{red}{\tilde{\bm{z}}_{t+h}} = \bm{M} \textcolor{blue}{\hat{\bm{z}}_{t+h}}
 \]
@@ -587,7 +585,7 @@ is the solution to \[
 
 \begin{frame}{Simulation}
 \phantomsection\label{simulation-1}
-\includegraphics{FLAP_files/figure-beamer/simulation-1.pdf}
+\pandocbounded{\includegraphics[keepaspectratio]{FLAP_files/figure-beamer/simulation-1.pdf}}
 \end{frame}
 
 \begin{frame}[fragile]{Monthly Australian regional tourism}
@@ -607,17 +605,17 @@ is the solution to \[
 
 \begin{frame}{Monthly Australian regional tourism}
 \phantomsection\label{monthly-australian-regional-tourism-1}
-\includegraphics{FLAP_files/figure-beamer/series-1.pdf}
+\pandocbounded{\includegraphics[keepaspectratio]{FLAP_files/figure-beamer/series-1.pdf}}
 \end{frame}
 
 \begin{frame}{Monthly Australian regional tourism}
 \phantomsection\label{monthly-australian-regional-tourism-2}
-\includegraphics{FLAP_files/figure-beamer/components-1.pdf}
+\pandocbounded{\includegraphics[keepaspectratio]{FLAP_files/figure-beamer/components-1.pdf}}
 \end{frame}
 
 \begin{frame}{Monthly Australian regional tourism - \texttt{ets()}}
 \phantomsection\label{monthly-australian-regional-tourism---ets}
-\includegraphics{FLAP_files/figure-beamer/visnights-1.pdf}
+\pandocbounded{\includegraphics[keepaspectratio]{FLAP_files/figure-beamer/visnights-1.pdf}}
 \end{frame}
 
 \begin{frame}{FRED-MD}
@@ -639,7 +637,7 @@ is the solution to \[
 
 \begin{frame}{FRED-MD}
 \phantomsection\label{fred-md-1}
-\includegraphics{FLAP_files/figure-beamer/fred-md-arima-1.pdf}
+\pandocbounded{\includegraphics[keepaspectratio]{FLAP_files/figure-beamer/fred-md-arima-1.pdf}}
 \end{frame}
 
 \begin{frame}{Future research directions}
@@ -689,7 +687,7 @@ or the development version from Github
 \phantomsection\label{slides-and-other-information}
 \textbf{Slides:}
 
-\href{https://github.com/GeorgeAthana/2024-INFORMS}{\color{Blue}{https://github.com/GeorgeAthana/2024-INFORMS}}
+\href{https://github.com/GeorgeAthana/FLAP-presentation}{\color{Blue}{https://github.com/GeorgeAthana/FLAP-presentation}}
 
 \vspace*{1cm}
 
